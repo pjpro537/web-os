@@ -1,0 +1,8 @@
+{
+  "name": "Copy of WebOS 11",
+  "description": "A fully functional, aesthetically pleasing web-based operating system featuring a window manager, file explorer, terminal with AI-simulated Python, paint, and more.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
