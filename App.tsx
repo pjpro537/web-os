@@ -2,14 +2,18 @@
 import React, { useState, useEffect } from 'react';
 import { WindowState, AppDefinition, BootState } from './types';
 import { Window } from './components/Window';
-import { Terminal as TerminalIcon, FileText, Image as ImageIcon, LayoutGrid, Power, Gamepad, Settings as SettingsIcon, RefreshCw, FolderPlus, Monitor } from 'lucide-react';
+import { Terminal as TerminalIcon, FileText, Image as ImageIcon, LayoutGrid, Power, Gamepad, Settings as SettingsIcon, RefreshCw, FolderPlus, Monitor, Music, LayoutTemplate, Rabbit } from 'lucide-react';
 import { Notepad } from './apps/Notepad';
 import { Terminal } from './apps/Terminal';
 import { Explorer } from './apps/Explorer';
 import { Paint } from './apps/Paint';
 import { Game } from './apps/Game';
+import { Tetris } from './apps/Tetris';
+import { DoodleJump } from './apps/DoodleJump';
 import { Settings } from './apps/Settings';
+import { MusicPlayer } from './apps/MusicPlayer';
 import { playSound } from './services/soundService';
+import { DesktopCompanion } from './components/DesktopCompanion';
 
 // App Definitions
 const APPS: AppDefinition[] = [
@@ -57,6 +61,33 @@ const APPS: AppDefinition[] = [
     defaultWidth: 450, 
     defaultHeight: 500, 
     description: 'Experience the nostalgia of the classic Snake game. Eat, grow, and survive!' 
+  },
+  { 
+    id: 'tetris', 
+    name: 'Tetris', 
+    icon: LayoutTemplate, 
+    component: Tetris, 
+    defaultWidth: 500, 
+    defaultHeight: 600, 
+    description: 'The classic block-stacking puzzle game. Clear lines and beat your high score!' 
+  },
+  { 
+    id: 'doodle', 
+    name: 'Doodle Jump', 
+    icon: Rabbit, 
+    component: DoodleJump, 
+    defaultWidth: 420, 
+    defaultHeight: 640, 
+    description: 'Jump higher and higher! Avoid obstacles and monsters in this infinite climber.' 
+  },
+  { 
+    id: 'music', 
+    name: 'Music Player', 
+    icon: Music, 
+    component: MusicPlayer, 
+    defaultWidth: 800, 
+    defaultHeight: 500, 
+    description: 'Listen to your favorite tracks with high-fidelity audio playback and visualizer.' 
   },
   { 
     id: 'settings', 
@@ -124,6 +155,8 @@ const App = () => {
     // Inject props for specific apps
     if (app.id === 'settings') {
         appComponent = <app.component currentWallpaper={wallpaper} onWallpaperChange={setWallpaper} />;
+    } else if (app.id === 'explorer') {
+        appComponent = <app.component onOpenApp={openApp} />;
     }
     
     const newWindow: WindowState = {
@@ -414,9 +447,9 @@ const App = () => {
                 {/* Start Button */}
                 <button 
                     onClick={(e) => { e.stopPropagation(); playSound('click'); setStartMenuOpen(!startMenuOpen); setContextMenu({ ...contextMenu, isOpen: false }); }}
-                    className="p-2 hover:bg-white/10 rounded-lg transition-all group active:scale-95"
+                    className="p-2 hover:bg-white/10 hover:scale-110 rounded-lg transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] group active:scale-95"
                 >
-                    <LayoutGrid size={22} className={`transition-colors ${startMenuOpen ? 'text-blue-400' : 'text-blue-300 group-hover:text-white'}`} />
+                    <LayoutGrid size={22} className={`transition-colors drop-shadow-lg ${startMenuOpen ? 'text-blue-400' : 'text-blue-300 group-hover:text-white group-hover:drop-shadow-[0_0_8px_rgba(59,130,246,0.6)]'}`} />
                 </button>
                 
                 <div className="w-[1px] h-6 bg-white/10 mx-2" />
@@ -428,18 +461,18 @@ const App = () => {
                             key={w.id}
                             onClick={() => w.isMinimized ? toggleMinimize(w.id) : focusWindow(w.id)}
                             className={`
-                                p-2 w-10 h-10 flex items-center justify-center rounded-lg transition-all relative group active:scale-95
-                                ${activeWindowId === w.id && !w.isMinimized ? 'bg-white/10 border border-white/5' : 'hover:bg-white/5 border border-transparent'}
+                                p-2 w-10 h-10 flex items-center justify-center rounded-lg transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] relative group active:scale-95 hover:scale-110 hover:-translate-y-0.5
+                                ${activeWindowId === w.id && !w.isMinimized ? 'bg-white/10 border border-white/5 shadow-inner' : 'hover:bg-white/10 border border-transparent'}
                             `}
                         >
-                            <w.icon size={20} className={`${activeWindowId === w.id ? 'text-blue-400' : 'text-gray-400 group-hover:text-white'} transition-colors`} />
+                            <w.icon size={20} className={`${activeWindowId === w.id ? 'text-blue-400 drop-shadow-[0_0_5px_rgba(59,130,246,0.5)]' : 'text-gray-400 group-hover:text-blue-200 group-hover:drop-shadow-[0_0_5px_rgba(255,255,255,0.5)]'} transition-colors`} />
                             
                             {/* Status Indicators */}
                             {activeWindowId === w.id && !w.isMinimized && (
-                                <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-blue-400 rounded-full shadow-[0_0_5px_rgba(59,130,246,0.5)]"></div>
+                                <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-blue-400 rounded-full shadow-[0_0_5px_rgba(59,130,246,0.8)]"></div>
                             )}
                             {w.isMinimized && (
-                                <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-gray-500 rounded-full"></div>
+                                <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-gray-500 rounded-full transition-all group-hover:w-1.5 group-hover:h-1.5 group-hover:bg-gray-400"></div>
                             )}
                         </button>
                     ))}
@@ -465,6 +498,9 @@ const App = () => {
                 </div>
             </div>
         </div>
+        
+        {/* Desktop Companion */}
+        <DesktopCompanion />
 
         {/* App Preview Tooltip */}
         {hoveredApp && hoverPos && (

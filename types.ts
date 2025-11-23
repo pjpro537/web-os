@@ -23,6 +23,7 @@ export interface FileSystemItem {
   content?: string; // For text files
   children?: FileSystemItem[]; // For folders
   parentId: string | null;
+  appId?: string; // For executable files
 }
 
 export interface AppDefinition {

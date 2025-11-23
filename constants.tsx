@@ -25,6 +25,17 @@ export const INITIAL_FILES: FileSystemItem[] = [
         children: []
       },
       {
+        id: 'games',
+        name: 'Games',
+        type: 'folder',
+        parentId: 'root',
+        children: [
+            { id: 'game_snake', name: 'Snake.exe', type: 'file', parentId: 'games', appId: 'game' },
+            { id: 'game_tetris', name: 'Tetris.exe', type: 'file', parentId: 'games', appId: 'tetris' },
+            { id: 'game_doodle', name: 'Doodle.exe', type: 'file', parentId: 'games', appId: 'doodle' },
+        ]
+      },
+      {
         id: 'sys',
         name: 'System',
         type: 'folder',
