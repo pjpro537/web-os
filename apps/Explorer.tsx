@@ -1,7 +1,8 @@
+
 import React, { useState } from 'react';
 import { FileSystemItem } from '../types';
 import { INITIAL_FILES } from '../constants';
-import { Folder, FileText, Image as ImageIcon, HardDrive, ArrowLeft, Search, FolderPlus, Gamepad } from 'lucide-react';
+import { Folder, FileText, Image as ImageIcon, HardDrive, ArrowLeft, Search, FolderPlus, Gamepad, Trash2, AlertTriangle, X } from 'lucide-react';
 import { playSound } from '../services/soundService';
 
 interface ExplorerProps {
@@ -13,6 +14,10 @@ export const Explorer: React.FC<ExplorerProps> = ({ onOpenApp }) => {
   const [files, setFiles] = useState<FileSystemItem[]>(INITIAL_FILES);
   const [currentPathId, setCurrentPathId] = useState<string>('root');
   const [history, setHistory] = useState<string[]>(['root']);
+  
+  // Interaction State
+  const [contextMenu, setContextMenu] = useState<{x: number, y: number, itemId: string} | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<string | null>(null);
   
   // Helper to find folder by ID recursively
   const findItem = (id: string, items: FileSystemItem[]): FileSystemItem | undefined => {
@@ -78,6 +83,23 @@ export const Explorer: React.FC<ExplorerProps> = ({ onOpenApp }) => {
     playSound('click');
   };
 
+  const handleDelete = () => {
+      if (!itemToDelete) return;
+
+      const deleteRecursive = (items: FileSystemItem[]): FileSystemItem[] => {
+          return items
+            .filter(item => item.id !== itemToDelete)
+            .map(item => ({
+                ...item,
+                children: item.children ? deleteRecursive(item.children) : undefined
+            }));
+      };
+
+      setFiles(deleteRecursive(files));
+      setItemToDelete(null);
+      playSound('click'); // Confirm sound
+  };
+
   const getFileIcon = (item: FileSystemItem) => {
       if (item.type === 'folder') return <Folder size={48} className="text-yellow-400 fill-yellow-400/20 group-hover:fill-yellow-400 transition-colors drop-shadow-sm" strokeWidth={1} />;
       if (item.appId) return <Gamepad size={40} className="text-purple-500 drop-shadow-sm" />;
@@ -86,7 +108,7 @@ export const Explorer: React.FC<ExplorerProps> = ({ onOpenApp }) => {
   };
 
   return (
-    <div className="h-full flex flex-col bg-[#202020] text-white select-none">
+    <div className="h-full flex flex-col bg-[#202020] text-white select-none relative" onClick={() => setContextMenu(null)}>
       {/* Toolbar */}
       <div className="h-12 flex items-center px-2 bg-[#2c2c2c] gap-2 border-b border-white/10">
         <button onClick={handleBack} disabled={history.length <= 1} className="p-1.5 hover:bg-white/10 rounded disabled:opacity-30 transition-colors">
@@ -124,14 +146,19 @@ export const Explorer: React.FC<ExplorerProps> = ({ onOpenApp }) => {
         </div>
 
         {/* Main View */}
-        <div className="flex-1 p-4 overflow-y-auto" onClick={(e) => { if(e.target === e.currentTarget) {} }}>
+        <div className="flex-1 p-4 overflow-y-auto">
           <div className="grid grid-cols-4 md:grid-cols-6 gap-4 animate-in fade-in duration-300">
             {currentFolder?.children?.map(item => (
               <div 
                 key={item.id}
                 onDoubleClick={() => handleNavigate(item)}
-                onClick={() => playSound('click')}
-                className="flex flex-col items-center gap-2 p-2 hover:bg-white/5 rounded cursor-pointer group transition-colors border border-transparent hover:border-white/5"
+                onClick={(e) => { e.stopPropagation(); playSound('click'); setContextMenu(null); }}
+                onContextMenu={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setContextMenu({ x: e.clientX, y: e.clientY, itemId: item.id });
+                }}
+                className={`flex flex-col items-center gap-2 p-2 hover:bg-white/5 rounded cursor-pointer group transition-colors border border-transparent hover:border-white/5 ${contextMenu?.itemId === item.id ? 'bg-white/10 border-white/10' : ''}`}
               >
                 {getFileIcon(item)}
                 <span className="text-xs text-gray-300 text-center truncate w-full px-1 group-hover:text-white">{item.name}</span>
@@ -151,6 +178,65 @@ export const Explorer: React.FC<ExplorerProps> = ({ onOpenApp }) => {
       <div className="h-6 bg-[#2c2c2c] flex items-center px-3 text-[10px] text-gray-400 gap-4 border-t border-white/10">
         <span>{currentFolder?.children?.length || 0} items</span>
       </div>
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <div 
+            className="fixed z-[9999] bg-[#2c2c2c] border border-white/10 rounded-lg shadow-xl p-1 w-48 animate-in fade-in zoom-in-95 duration-100"
+            style={{ top: Math.min(contextMenu.y, window.innerHeight - 100), left: Math.min(contextMenu.x, window.innerWidth - 200) }}
+            onClick={(e) => e.stopPropagation()}
+        >
+            <button 
+                onClick={() => {
+                    setItemToDelete(contextMenu.itemId);
+                    setContextMenu(null);
+                    playSound('click');
+                }}
+                className="w-full flex items-center gap-2 px-2 py-1.5 hover:bg-red-500/20 text-red-400 hover:text-red-300 rounded text-xs transition-colors"
+            >
+                <Trash2 size={14} /> Delete
+            </button>
+        </div>
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {itemToDelete && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-8 animate-in fade-in duration-200" onClick={(e) => e.stopPropagation()}>
+              <div className="bg-[#202020] border border-white/10 rounded-xl shadow-2xl w-full max-w-sm overflow-hidden scale-100 animate-in zoom-in-95 duration-200">
+                   {/* Header */}
+                   <div className="h-10 bg-[#2c2c2c] border-b border-white/5 flex items-center justify-between px-4">
+                       <span className="text-xs font-bold text-gray-300">Delete Item</span>
+                       <button onClick={() => setItemToDelete(null)} className="text-gray-500 hover:text-white transition-colors"><X size={14}/></button>
+                   </div>
+                   
+                   {/* Body */}
+                   <div className="p-6 flex flex-col items-center text-center gap-4">
+                       <div className="w-12 h-12 bg-yellow-500/20 rounded-full flex items-center justify-center text-yellow-500 mb-2 border border-yellow-500/30">
+                           <AlertTriangle size={24} />
+                       </div>
+                       <div>
+                           <h3 className="text-sm font-medium text-white mb-1">Are you sure you want to delete this item?</h3>
+                           <p className="text-xs text-gray-400">This action cannot be undone.</p>
+                       </div>
+                       
+                       <div className="flex gap-3 w-full mt-2">
+                           <button 
+                              onClick={() => { setItemToDelete(null); playSound('click'); }}
+                              className="flex-1 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded text-xs text-gray-300 transition-colors"
+                           >
+                              Cancel
+                           </button>
+                           <button 
+                              onClick={handleDelete}
+                              className="flex-1 px-4 py-2 bg-red-500/80 hover:bg-red-500 border border-red-400/50 rounded text-xs text-white font-medium shadow-lg shadow-red-500/20 transition-all active:scale-95"
+                           >
+                              Delete
+                           </button>
+                       </div>
+                   </div>
+              </div>
+          </div>
+      )}
     </div>
   );
 };
