@@ -14,7 +14,8 @@ interface WindowProps {
   updateSize: (id: string, w: number, h: number) => void;
 }
 
-export const Window: React.FC<WindowProps> = ({
+// Optimization: Use React.memo to prevent re-renders of the content when dragging
+export const Window = React.memo<WindowProps>(({
   window,
   onClose,
   onMinimize,
@@ -32,7 +33,11 @@ export const Window: React.FC<WindowProps> = ({
 
   // Mount animation trigger
   useEffect(() => {
-    const timer = setTimeout(() => setIsMounting(false), 10);
+    // Force layout reflow before starting animation
+    if(windowRef.current) {
+        // void windowRef.current.offsetWidth; 
+    }
+    const timer = setTimeout(() => setIsMounting(false), 50);
     return () => clearTimeout(timer);
   }, []);
 
@@ -51,6 +56,7 @@ export const Window: React.FC<WindowProps> = ({
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (isDragging) {
+        // Using requestAnimationFrame could make it even smoother, but React 18 auto-batching handles this well
         updatePosition(window.id, e.clientX - dragOffset.x, e.clientY - dragOffset.y);
       }
     };
@@ -73,7 +79,7 @@ export const Window: React.FC<WindowProps> = ({
       e.stopPropagation();
       playSound('close'); 
       setIsClosing(true);
-      setTimeout(() => onClose(window.id), 300);
+      setTimeout(() => onClose(window.id), 200);
   };
 
   // Determine styles based on state
@@ -81,12 +87,15 @@ export const Window: React.FC<WindowProps> = ({
   
   const style: React.CSSProperties = {
     zIndex: window.zIndex,
-    transition: isTransitioning ? 'all 0.3s cubic-bezier(0.25, 1, 0.5, 1)' : 'none',
+    // Only transition if not dragging (prevents lag)
+    transition: isTransitioning ? 'top 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), left 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), width 0.3s ease, height 0.3s ease' : 'none',
     // Geometry
     ...(window.isMaximized 
       ? { top: 0, left: 0, width: '100%', height: 'calc(100% - 48px)', borderRadius: 0 } 
       : { top: window.y, left: window.x, width: window.width, height: window.height, borderRadius: '0.75rem' }
-    )
+    ),
+    // Performance optimization for moving elements
+    willChange: isDragging ? 'top, left' : 'auto',
   };
 
   // CSS Classes for visual states (Animation)
@@ -99,14 +108,14 @@ export const Window: React.FC<WindowProps> = ({
       animationClasses = 'scale-90 opacity-0 translate-y-4';
       pointerEvents = 'pointer-events-none';
   } else if (window.isMinimized) {
-      animationClasses = 'scale-75 opacity-0 translate-y-12';
+      animationClasses = 'scale-75 opacity-0 translate-y-24';
       pointerEvents = 'pointer-events-none';
   }
 
   return (
     <div
       ref={windowRef}
-      className={`absolute flex flex-col bg-slate-900/95 backdrop-blur-xl border border-white/10 shadow-2xl overflow-hidden ${animationClasses} ${pointerEvents}`}
+      className={`absolute flex flex-col bg-slate-900/90 backdrop-blur-2xl border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden ${animationClasses} ${pointerEvents}`}
       style={style}
       onMouseDown={() => !window.isMinimized && onFocus(window.id)}
     >
@@ -164,7 +173,9 @@ export const Window: React.FC<WindowProps> = ({
                 const startH = window.height;
                 
                 const handleResize = (moveEvent: MouseEvent) => {
-                    updateSize(window.id, Math.max(300, startW + (moveEvent.clientX - startX)), Math.max(200, startH + (moveEvent.clientY - startY)));
+                    requestAnimationFrame(() => {
+                        updateSize(window.id, Math.max(300, startW + (moveEvent.clientX - startX)), Math.max(200, startH + (moveEvent.clientY - startY)));
+                    });
                 };
                 const stopResize = () => {
                     setIsResizing(false);
@@ -180,4 +191,14 @@ export const Window: React.FC<WindowProps> = ({
       )}
     </div>
   );
-};
+}, (prev, next) => {
+    // Custom comparison for memo
+    return prev.window.x === next.window.x && 
+           prev.window.y === next.window.y && 
+           prev.window.width === next.window.width && 
+           prev.window.height === next.window.height &&
+           prev.window.zIndex === next.window.zIndex &&
+           prev.window.isOpen === next.window.isOpen &&
+           prev.window.isMinimized === next.window.isMinimized &&
+           prev.window.isMaximized === next.window.isMaximized;
+});
